@@ -6,6 +6,7 @@ The data for each node is saved within the node for simplicity.
 import logging
 import numpy as np
 import ete3
+import os
 
 
 class DecisionTree:
@@ -21,11 +22,12 @@ class DecisionTree:
         _, self.dim, _, self.classes = self.datasetinfo(data)
 
         # Split in training and test set.
-        nv = int(DecisionTree.TEST * data.shape[0])
-        self.Xs, self.Xt = np.vsplit(self.data, [nv])
+        #nv = int(DecisionTree.TEST * data.shape[0])
+        #self.Xs, self.Xt = np.vsplit(self.data, [nv])
 
-        logging.info("Training: " + str(self.Xt.shape[0]))
-        logging.info("Test: " + str(self.Xs.shape[0]))
+        #logging.info("Training: " + str(self.Xt.shape[0]))
+        #logging.info("Test: " + str(self.Xs.shape[0]))
+        self.Xt = self.data
 
         self.buildtree()
 
@@ -44,7 +46,7 @@ class DecisionTree:
         # Creates node and adds default values for the required attributes.
         node = ete3.TreeNode()
 
-        classdist = self.classdist(data)
+        classdist = self.classdistprob(data)
 
         # Quality measure for the class distribution.
         qvalue = self.qmeasure(classdist)
@@ -58,18 +60,26 @@ class DecisionTree:
         return node
 
     def classdist(self, data):
-        """
-        :return: Dictionary with key = class number and value = percentage.
-        """
         classdist = dict()
 
         column = self.dim
-        points = data.shape[0]
 
         for c in range(self.classes):
-            classdist[c] = sum(data[:, column] == c) / points
+            classdist[c] = sum(data[:, column] == c)
 
         return classdist
+
+    def classdistprob(self, data):
+        """
+        :return: Dictionary with key = class number and value = percentage.
+        """
+        dist = self.classdist(data)
+        points = data.shape[0]
+
+        for k in dist:
+            dist[k] = dist[k] / points
+
+        return dist
 
     def di(self, node, lnode, rnode):
         """
@@ -100,10 +110,33 @@ class DecisionTree:
         if lnode == None or rnode == None:
             return
 
+        self.addtext(lnode)
+        self.addtext(rnode)
+        node.add_child(rnode, 'r')
+        node.add_child(lnode, 'l')
+
         self.depth += 1
 
         self._build(lnode)
         self._build(rnode)
+
+    def addtext(self, node):
+        txt = str(self.classdist(node.data)) + os.linesep + str(node.qvalue)
+        # txt = np.array_str(node.data)
+
+        text = ete3.TextFace(txt)
+
+        # hola.margin_top = 10
+        # hola.margin_right = 10
+        # hola.margin_left = 10
+        # hola.margin_bottom = 10
+        # hola.opacity = 0.5  # from 0 to 1
+        # hola.inner_border.width = 1  # 1 pixel border
+        # hola.inner_border.type = 1  # dashed line
+        # hola.border.width = 1
+        # text.background.color = "LightGreen"
+
+        node.add_face(text, column=0, position="branch-right")
 
     def split(self, node, f, split):
         data = node.data
@@ -157,8 +190,17 @@ class DecisionTree:
         else:
             return None, None
 
+    def classify(self, x):
+        pass
+        # TODO
+
+    def accuracy(self):
+        pass
+        # TODO
+
     def show(self):
         self.root.show()
+        self.root.render("tree.png")
 
 
 def gini(classdist):
